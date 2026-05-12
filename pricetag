@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sina Cake - Price Tag Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Inter:wght@300;400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .serif { font-family: 'Playfair+Display', serif; }
+        
+        /* Desain Price Tag Presisi */
+        .price-tag {
+            background: white;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #eee;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            color: #1a1a1a;
+        }
+
+        /* Ukuran Tag */
+        .tag-large { width: 400px; height: 550px; }
+        .tag-small { width: 280px; height: 400px; transform-origin: top left; }
+
+        /* Elemen Dekoratif */
+        .red-splatter {
+            position: absolute;
+            top: -20px;
+            right: -20px;
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, #be123c 20%, transparent 70%);
+            opacity: 0.8;
+            filter: blur(15px);
+            z-index: 1;
+        }
+
+        .gold-border {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 150px;
+            height: 150px;
+            border-left: 3px solid transparent;
+            border-bottom: 3px solid transparent;
+            border-image: linear-gradient(to top right, #d4af37, #f9e29c) 1;
+        }
+
+        .diamond-line {
+            height: 2px;
+            background: #1a1a1a;
+            width: 100%;
+            position: relative;
+            margin: 10px 0;
+        }
+        .diamond-line::before, .diamond-line::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            width: 8px;
+            height: 8px;
+            background: #1a1a1a;
+            transform: rotate(45deg);
+        }
+        .diamond-line::before { left: 0; }
+        .diamond-line::after { right: 0; }
+
+        /* PDF Render Area (Hidden) */
+        #pdf-container {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 794px; /* A4 width in px at 96dpi */
+            background: white;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-gray-800">Sina Cake Price Tag Generator</h1>
+            <p class="text-gray-500">Buat label harga profesional dengan standar preset otomatis.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-fit">
+                <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-rose-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    Tambah Price Tag
+                </h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Produk</label>
+                        <input type="text" id="prodName" placeholder="Contoh: Red Velvet with Cheese" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Deskripsi Singkat</label>
+                        <input type="text" id="prodDesc" placeholder="Contoh: a special red velvet flavor cake" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Harga (Angka saja)</label>
+                        <input type="number" id="prodPrice" placeholder="Contoh: 165000" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ukuran Cetak</label>
+                        <select id="prodSize" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                            <option value="large">Besar (A6 Approx)</option>
+                            <option value="small">Kecil (Kartu Nama Approx)</option>
+                        </select>
+                    </div>
+                    <button onclick="addTag()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-lg shadow-rose-200">
+                        Tambahkan ke List
+                    </button>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">Daftar Cetak (<span id="count">0</span>)</h2>
+                    <div class="flex gap-2">
+                        <button onclick="clearAll()" class="px-4 py-2 text-sm text-gray-500 hover:text-rose-600">Hapus Semua</button>
+                        <button onclick="generatePDF()" id="downloadBtn" disabled class="bg-gray-800 hover:bg-black text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2 disabled:opacity-50">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                            Export ke PDF A4
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Grid Preview -->
+                <div id="previewGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
+                    <!-- Placeholder Empty -->
+                    <div id="emptyState" class="col-span-full py-20 text-center border-2 border-dashed border-gray-200 rounded-3xl">
+                        <p class="text-gray-400">Belum ada item. Silakan tambah produk di panel kiri.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container Tersembunyi untuk Render PDF -->
+    <div id="pdf-render-area" class="bg-white" style="width: 210mm; padding: 10mm; display: none;">
+        <div id="pdf-grid" class="grid grid-cols-2 gap-4">
+            <!-- Isi akan di-inject lewat JS -->
+        </div>
+    </div>
+
+    <script>
+        let tags = [];
+
+        function formatNumber(num) {
+            return new Intl.NumberFormat('id-ID').format(num);
+        }
+
+        function addTag() {
+            const name = document.getElementById('prodName').value;
+            const desc = document.getElementById('prodDesc').value;
+            const price = document.getElementById('prodPrice').value;
+            const size = document.getElementById('prodSize').value;
+
+            if (!name || !price) {
+                alert("Mohon isi Nama dan Harga produk.");
+                return;
+            }
+
+            const newTag = {
+                id: Date.now(),
+                name,
+                desc,
+                price: formatNumber(price),
+                size
+            };
+
+            tags.push(newTag);
+            updateUI();
+            
+            // Reset fields
+            document.getElementById('prodName').value = '';
+            document.getElementById('prodDesc').value = '';
+            document.getElementById('prodPrice').value = '';
+        }
+
+        function removeTag(id) {
+            tags = tags.filter(t => t.id !== id);
+            updateUI();
+        }
+
+        function clearAll() {
+            tags = [];
+            updateUI();
+        }
+
+        function updateUI() {
+            const grid = document.getElementById('previewGrid');
+            const count = document.getElementById('count');
+            const empty = document.getElementById('emptyState');
+            const downloadBtn = document.getElementById('downloadBtn');
+
+            count.innerText = tags.length;
+            downloadBtn.disabled = tags.length === 0;
+
+            if (tags.length === 0) {
+                empty.style.display = 'block';
+                // Clean existing tags
+                const items = grid.querySelectorAll('.tag-item');
+                items.forEach(el => el.remove());
+                return;
+            }
+
+            empty.style.display = 'none';
+            grid.innerHTML = ''; // Re-render simple
+
+            tags.forEach(tag => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'tag-item relative group scale-90 origin-top-left';
+                
+                const html = `
+                    <div class="price-tag ${tag.size === 'large' ? 'tag-large' : 'tag-small'}">
+                        <div class="red-splatter"></div>
+                        <div class="mt-8 mb-2">
+                            <h3 class="serif text-4xl leading-tight">${tag.name}</h3>
+                        </div>
+                        <div class="diamond-line"></div>
+                        <p class="text-lg font-light text-gray-600 mb-8 lowercase">${tag.desc}</p>
+                        
+                        <div class="mt-4">
+                            <span class="serif text-6xl tracking-tight">${tag.price},</span>
+                        </div>
+
+                        <div class="gold-border"></div>
+                        <div class="absolute bottom-6 right-6 font-bold text-2xl tracking-tighter uppercase italic">
+                            sina cake
+                        </div>
+                    </div>
+                    <button onclick="removeTag(${tag.id})" class="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition shadow-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                `;
+                wrapper.innerHTML = html;
+                grid.appendChild(wrapper);
+            });
+        }
+
+        async function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const btn = document.getElementById('downloadBtn');
+            btn.innerText = "Processing...";
+            btn.disabled = true;
+
+            const renderArea = document.getElementById('pdf-render-area');
+            const pdfGrid = document.getElementById('pdf-grid');
+            renderArea.style.display = 'block';
+            pdfGrid.innerHTML = '';
+
+            // Layout A4: Besar 2 per baris, Kecil 3 per baris
+            // Untuk kesederhanaan kita render satu per satu ke PDF halaman
+            const doc = new jsPDF('p', 'mm', 'a4');
+            let currentY = 10;
+            let currentX = 10;
+            const pageWidth = 210;
+            const pageHeight = 297;
+
+            for (let i = 0; i < tags.length; i++) {
+                const tag = tags[i];
+                
+                // Buat elemen sementara untuk ditangkap html2canvas
+                const tempDiv = document.createElement('div');
+                tempDiv.className = `price-tag ${tag.size === 'large' ? 'tag-large' : 'tag-small'}`;
+                tempDiv.style.boxShadow = 'none';
+                tempDiv.style.border = '1px solid #ddd';
+                tempDiv.innerHTML = `
+                    <div class="red-splatter" style="background: radial-gradient(circle, #be123c 20%, transparent 70%);"></div>
+                    <div class="mt-8 mb-2">
+                        <h3 class="serif text-4xl" style="font-family: 'Playfair Display', serif;">${tag.name}</h3>
+                    </div>
+                    <div class="diamond-line" style="background: #000; height: 1px;"></div>
+                    <p class="text-lg font-light mb-8" style="font-family: 'Inter', sans-serif;">${tag.desc}</p>
+                    <div class="mt-4">
+                        <span class="serif text-6xl" style="font-family: 'Playfair Display', serif;">${tag.price},</span>
+                    </div>
+                    <div class="gold-border" style="border-bottom: 3px solid #d4af37; border-left: 3px solid #d4af37; opacity: 0.7;"></div>
+                    <div class="absolute bottom-6 right-6 font-bold text-2xl italic">SINA CAKE</div>
+                `;
+                
+                renderArea.appendChild(tempDiv);
+                
+                const canvas = await html2canvas(tempDiv, { scale: 2, useCORS: true });
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                
+                // Kalkulasi dimensi di PDF
+                const imgWidth = tag.size === 'large' ? 90 : 60;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                // Cek ganti baris atau halaman
+                if (currentX + imgWidth > pageWidth - 10) {
+                    currentX = 10;
+                    currentY += imgHeight + 10;
+                }
+
+                if (currentY + imgHeight > pageHeight - 10) {
+                    doc.addPage();
+                    currentY = 10;
+                    currentX = 10;
+                }
+
+                doc.addImage(imgData, 'JPEG', currentX, currentY, imgWidth, imgHeight);
+                
+                currentX += imgWidth + 10;
+                renderArea.removeChild(tempDiv);
+            }
+
+            doc.save(`Price-Tags-SinaCake-${Date.now()}.pdf`);
+            
+            renderArea.style.display = 'none';
+            btn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg> Export ke PDF A4`;
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>
